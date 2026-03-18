@@ -1,0 +1,39 @@
+services:
+  api:
+    build: 
+      context: .
+      dockerfile_inline: |
+        FROM python:3.11-slim
+        WORKDIR /app
+        RUN pip install --no-cache-dir fastapi uvicorn httpx pydantic
+        COPY api.py .
+        CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      - SCHOLAR_URL=http://scholar:8001/solve
+      - COACH_URL=http://coach:8002/process
+      - FORMATTER_URL=http://formatter:8003/format
+    restart: always
+
+  scholar:
+    build: ./agents/scholar
+    ports:
+      - "8001:8001"
+    environment:
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY}
+    restart: always
+
+  coach:
+    build: ./agents/coach
+    ports:
+      - "8002:8002"
+    environment:
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY}
+    restart: always
+
+  formatter:
+    build: ./agents/formatter
+    ports:
+      - "8003:8003"
+    restart: always
