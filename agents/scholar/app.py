@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from ollama import AsyncClient  # Use Async for better performance
+import uvicorn
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO,
@@ -42,3 +43,10 @@ async def solve_query(data: ScholarRequest):
     except Exception as e:
         logger.error(f"❌ Scholar failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+if __name__ == "__main__":
+    # Render provides the port via the PORT environment variable
+    # Fallback to 8001 if running locally
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)

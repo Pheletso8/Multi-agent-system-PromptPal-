@@ -4,6 +4,11 @@ import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+import json
+import re
+from fastapi.responses import StreamingResponse
+
 
 # --- 1. DEFINE LOGGER PROPERLY ---
 logging.basicConfig(level=logging.INFO,
@@ -30,11 +35,6 @@ FORMATTER_URL = os.getenv("FORMATTER_URL", "http://formatter:8003/format")
 
 class QuestionRequest(BaseModel):
     question: str
-
-
-import json
-import re
-from fastapi.responses import StreamingResponse
 
 @app.post("/ask")
 async def ask_tutor(request: QuestionRequest):
@@ -83,6 +83,5 @@ async def ask_tutor(request: QuestionRequest):
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 if __name__ == "__main__":
-    import uvicorn
     # Sharp-sharp! Make sure this port matches your Docker Compose
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+   uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

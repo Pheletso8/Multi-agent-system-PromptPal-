@@ -2,6 +2,8 @@ import re
 import time
 from fastapi import FastAPI
 from pydantic import BaseModel
+import uvicorn
+import os
 
 app = FastAPI()
 
@@ -33,3 +35,8 @@ async def format_output(data: FormatRequest):
             "original_solution": data.solution
         }
     }
+if __name__ == "__main__":
+    # Render provides the port via the PORT environment variable
+    # Fallback to 8003 if running locally
+    port = int(os.environ.get("PORT", 8003))
+    uvicorn.run(app, host="0.0.0.0", port=port)

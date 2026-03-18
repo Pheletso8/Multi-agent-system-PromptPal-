@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from ollama import AsyncClient
+import uvicorn
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [Coach]: %(message)s")
@@ -88,6 +89,6 @@ async def process_coach(data: CoachRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    import uvicorn
     # Make sure this port is 8002 to match your working network config
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    port = int(os.environ.get("PORT", 8002))
+    uvicorn.run(app, host="0.0.0.0", port=port)

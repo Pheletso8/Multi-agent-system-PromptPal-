@@ -1,0 +1,52 @@
+services:
+  # 1. API Gateway (The 'api' service)
+  - type: web
+    name: promptpal-api
+    runtime: docker
+    dockerContext: .
+    # Use the 'dockerfile_inline' logic by pointing to a specific file 
+    # if you've saved it, otherwise Render will look for 'Dockerfile' in the root.
+    plan: free 
+    envVars:
+      - key: SCHOLAR_URL
+        fromService:
+          name: promptpal-scholar
+          type: pserv
+          property: hostport
+      - key: COACH_URL
+        fromService:
+          name: promptpal-coach
+          type: pserv
+          property: hostport
+      - key: FORMATTER_URL
+        fromService:
+          name: promptpal-formatter
+          type: pserv
+          property: hostport
+
+  # 2. Scholar Agent
+  - type: pserv # 'pserv' is a Private Service, only accessible internally
+    name: promptpal-scholar
+    runtime: docker
+    dockerContext: agents/scholar
+    dockerfilePath: agents/scholar/Dockerfile
+    envVars:
+      - key: OLLAMA_API_KEY
+        sync: false # Set this manually in Render Dashboard for security
+
+  # 3. Coach Agent
+  - type: pserv
+    name: promptpal-coach
+    runtime: docker
+    dockerContext: agents/coach
+    dockerfilePath: agents/coach/Dockerfile
+    envVars:
+      - key: OLLAMA_API_KEY
+        sync: false
+
+  # 4. Formatter Agent
+  - type: pserv
+    name: promptpal-formatter
+    runtime: docker
+    dockerContext: agents/formatter
+    dockerfilePath: agents/formatter/Dockerfile
