@@ -23,10 +23,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Service URLs (Docker internal DNS names)
-SCHOLAR_URL = os.getenv("SCHOLAR_URL", "http://scholar:8001/solve")
-COACH_URL = os.getenv("COACH_URL", "http://coach:8002/process")
-FORMATTER_URL = os.getenv("FORMATTER_URL", "http://formatter:8003/format")
+# Service URLs (Docker internal DNS names or Render hostports)
+scholar_env = os.getenv("SCHOLAR_URL", "http://scholar:8001/solve")
+SCHOLAR_URL = scholar_env if scholar_env.startswith("http") else f"http://{scholar_env}/solve"
+
+coach_env = os.getenv("COACH_URL", "http://coach:8002/process")
+COACH_URL = coach_env if coach_env.startswith("http") else f"http://{coach_env}/process"
+
+formatter_env = os.getenv("FORMATTER_URL", "http://formatter:8003/format")
+FORMATTER_URL = formatter_env if formatter_env.startswith("http") else f"http://{formatter_env}/format"
 
 GREETINGS = re.compile(
     r"^(hi|hello|howzit|hey|hiya|yo|good morning|good afternoon|good evening)\b.*$",
