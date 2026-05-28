@@ -1,14 +1,12 @@
 import os
-import httpx
 import logging
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-import json
 import re
-from fastapi.responses import StreamingResponse
-
+import httpx
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+import uvicorn
 
 # --- 1. DEFINE LOGGER PROPERLY ---
 logging.basicConfig(level=logging.INFO,
@@ -19,69 +17,103 @@ app = FastAPI(title="Grade 7 Tutor API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://your-frontend-domain.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Service URLs (Docker internal DNS names)
-# these are injected via environment variables in Docker Compose, but
-# fall back to sensible defaults so the module can run outside of Docker.
 SCHOLAR_URL = os.getenv("SCHOLAR_URL", "http://scholar:8001/solve")
 COACH_URL = os.getenv("COACH_URL", "http://coach:8002/process")
 FORMATTER_URL = os.getenv("FORMATTER_URL", "http://formatter:8003/format")
+
+GREETINGS = re.compile(
+    r"^(hi|hello|howzit|hey|hiya|yo|good morning|good afternoon|good evening)\b.*$",
+    re.I,
+)
 
 
 class QuestionRequest(BaseModel):
     question: str
 
+
+def is_greeting(question: str) -> bool:
+    return bool(GREETINGS.match(question.strip()))
+
+
+def build_scholar_prompt(question: str) -> str:
+    return (
+        "You are Scholar Pal. Produce a complete internal reasoning path for a Grade 7 student. "
+        "This output is internal only and should NOT be given to the student directly. "
+        "Do not include the final numeric answer in the explanation.\n\n"
+        f"Question: {question}"
+    )
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "api", "ready": True}
+
+
 @app.post("/ask")
 async def ask_tutor(request: QuestionRequest):
-    async def event_generator():
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            try:
-                # 1. Scholar Agent (Collect full solution for Coach)
-                logger.info(f"🚀 Step 1: Calling Scholar for: {request.question[:30]}...")
+    question = request.question.strip()
+    if not question:
+        raise HTTPException(
+            status_code=400, detail="Question must not be empty.")
+
+    greeted = is_greeting(question)
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        try:
+            if greeted:
+                logger.info(f"👋 Greeting request: {question[:80]}")
                 scholar_solution = ""
-                async with client.stream("POST", SCHOLAR_URL, json={"query": request.question}) as r:
-                    r.raise_for_status()
-                    async for chunk in r.aiter_bytes():
-                        decoded = chunk.decode()
-                        scholar_solution += decoded
-                        # Optional: yield status or interim progress
-                        # yield f"data: {json.dumps({'type': 'status', 'msg': 'Scholar is thinking...'})}\n\n"
+            else:
+                logger.info(f"🧠 Tutoring request: {question[:80]}")
+                scholar_response = await client.post(
+                    SCHOLAR_URL,
+                    json={"query": build_scholar_prompt(question)}
+                )
+                scholar_response.raise_for_status()
+                scholar_solution = scholar_response.text.strip()
+                if not scholar_solution:
+                    raise ValueError("Scholar returned an empty solution.")
 
-                # 2. Coach Agent (Streaming directly to user)
-                logger.info("🧠 Step 2: Calling Coach for Socratic logic...")
-                full_hint = ""
-                async with client.stream("POST", COACH_URL, json={
-                    "query": request.question,
-                    "solution": scholar_solution
-                }) as r:
-                    r.raise_for_status()
-                    async for chunk in r.aiter_bytes():
-                        decoded = chunk.decode()
-                        full_hint += decoded
-                        yield f"data: {json.dumps({'type': 'hint_delta', 'delta': decoded})}\n\n"
+            logger.info("🧠 Passing request to Coach...")
+            coach_response = await client.post(
+                COACH_URL,
+                json={"query": question, "solution": scholar_solution}
+            )
+            coach_response.raise_for_status()
+            coach_hint = coach_response.text
 
-                # 3. Formatter Agent (Final clean-up)
-                logger.info("🎨 Step 3: Calling Formatter...")
-                formatter_res = await client.post(FORMATTER_URL, json={
-                    "hint": full_hint,
-                    "solution": scholar_solution
-                })
-                formatter_res.raise_for_status()
-                final_json = formatter_res.json()
+            logger.info("🎨 Formatting coach output...")
+            formatter_response = await client.post(
+                FORMATTER_URL,
+                json={"hint": coach_hint, "solution": scholar_solution}
+            )
+            formatter_response.raise_for_status()
+            payload = formatter_response.json()
 
-                yield f"data: {json.dumps({'type': 'complete', 'data': final_json['data']})}\n\n"
+            return JSONResponse({
+                "status": "success",
+                "type": "greeting" if greeted else "guided",
+                "question": question,
+                "data": payload["data"],
+            })
 
-            except Exception as e:
-                logger.error(f"❌ Pipeline Error: {str(e)}")
-                yield f"data: {json.dumps({'type': 'error', 'detail': str(e)})}\n\n"
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error in pipeline: {e}")
+            raise HTTPException(status_code=502, detail=str(e))
+        except Exception as e:
+            logger.error(f"Pipeline Error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 if __name__ == "__main__":
-    # Sharp-sharp! Make sure this port matches your Docker Compose
-   uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

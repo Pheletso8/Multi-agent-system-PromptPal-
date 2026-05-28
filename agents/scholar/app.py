@@ -14,14 +14,30 @@ logger = logging.getLogger("scholar")
 app = FastAPI()
 
 # Global client to reuse the connection pool
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "https://ollama.com")
+OLLAMA_MODEL = os.environ.get("SCHOLAR_MODEL", "gpt-oss:120b-cloud")
+api_key = os.environ.get('OLLAMA_API_KEY', '')
 client = AsyncClient(
-    host="https://ollama.com",
-    headers={'Authorization': f"Bearer {os.environ.get('OLLAMA_API_KEY', '')}"}
+    host=OLLAMA_HOST,
+    headers={'Authorization': f"Bearer {api_key}"}
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    if not api_key:
+        logger.error("OLLAMA_API_KEY is missing.")
+        raise RuntimeError("OLLAMA_API_KEY is required for Scholar service.")
 
 
 class ScholarRequest(BaseModel):
     query: str
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "scholar", "ready": True}
+
 
 @app.post("/solve")
 async def solve_query(data: ScholarRequest):
@@ -30,7 +46,7 @@ async def solve_query(data: ScholarRequest):
 
         async def generate():
             async for chunk in await client.chat(
-                model='gpt-oss:120b-cloud',
+                model=OLLAMA_MODEL,
                 messages=[{'role': 'user', 'content': data.query}],
                 stream=True
             ):

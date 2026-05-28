@@ -13,6 +13,11 @@ class FormatRequest(BaseModel):
     solution: str
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "formatter", "ready": True}
+
+
 @app.post("/format")
 async def format_output(data: FormatRequest):
     hint_content = data.hint
@@ -31,8 +36,7 @@ async def format_output(data: FormatRequest):
         "timestamp": time.time(),
         "data": {
             "hint": clean_hint if clean_hint else "Sharp-sharp! Let's look at this...",
-            "diagram": mermaid_code,
-            "original_solution": data.solution
+            "diagram": mermaid_code
         }
     }
 if __name__ == "__main__":

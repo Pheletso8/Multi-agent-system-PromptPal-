@@ -1,5 +1,4 @@
 import requests
-import json
 
 
 def ask_prompt_pal(question):
@@ -14,8 +13,11 @@ def ask_prompt_pal(question):
         result = response.json()
 
         print("\n" + "="*60)
-        print(f"✨ COACH HINT: {result['data']['hint']}")
-        print(f"📊 DIAGRAM: \n{result['data']['diagram']}")
+        if result.get("type") == "academic":
+            print(f"✨ ACADEMIC HINT: {result['data']['hint']}")
+            print(f"📊 DIAGRAM:\n{result['data']['diagram']}")
+        else:
+            print(f"✨ ANSWER: {result['answer']}")
         print("="*60)
 
     except Exception as e:
@@ -23,5 +25,5 @@ def ask_prompt_pal(question):
 
 
 if __name__ == "__main__":
-    # Ensure your docker containers are running before starting this!
-    ask_prompt_pal("How do I calculate the area of a rectangle?")
+    # Ensure your API gateway is running before starting this.
+    ask_prompt_pal("What is the capital of France?")

@@ -4,9 +4,9 @@ services:
     name: promptpal-api
     runtime: docker
     dockerContext: .
-    # Use the 'dockerfile_inline' logic by pointing to a specific file 
-    # if you've saved it, otherwise Render will look for 'Dockerfile' in the root.
-    plan: free 
+    dockerfilePath: Dockerfile
+    plan: free
+    healthCheckPath: /health
     envVars:
       - key: SCHOLAR_URL
         fromService:
@@ -30,6 +30,7 @@ services:
     runtime: docker
     dockerContext: agents/scholar
     dockerfilePath: agents/scholar/Dockerfile
+    healthCheckPath: /health
     envVars:
       - key: OLLAMA_API_KEY
         sync: false # Set this manually in Render Dashboard for security
@@ -40,6 +41,7 @@ services:
     runtime: docker
     dockerContext: agents/coach
     dockerfilePath: agents/coach/Dockerfile
+    healthCheckPath: /health
     envVars:
       - key: OLLAMA_API_KEY
         sync: false
@@ -50,3 +52,4 @@ services:
     runtime: docker
     dockerContext: agents/formatter
     dockerfilePath: agents/formatter/Dockerfile
+    healthCheckPath: /health
