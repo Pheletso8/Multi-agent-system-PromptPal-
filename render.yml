@@ -23,7 +23,7 @@ services:
     dockerfilePath: agents/scholar/Dockerfile
     healthCheckPath: /health
     envVars:
-      - key: OLLAMA_API_KEY
+      - key: GROQ_API_KEY
         sync: false # Set this manually in Render Dashboard for security
 
   # 3. Coach Agent
@@ -34,7 +34,7 @@ services:
     dockerfilePath: agents/coach/Dockerfile
     healthCheckPath: /health
     envVars:
-      - key: OLLAMA_API_KEY
+      - key: GROQ_API_KEY
         sync: false
 
   # 4. Formatter Agent

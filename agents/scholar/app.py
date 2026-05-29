@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from ollama import AsyncClient  # Use Async for better performance
+from groq import AsyncGroq
 import uvicorn
 
 # Setup Logging
@@ -14,20 +14,16 @@ logger = logging.getLogger("scholar")
 app = FastAPI()
 
 # Global client to reuse the connection pool
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("SCHOLAR_MODEL", "gpt-oss:120b-cloud")
-api_key = os.environ.get('OLLAMA_API_KEY', '')
-client = AsyncClient(
-    host=OLLAMA_HOST,
-    headers={'Authorization': f"Bearer {api_key}"}
-)
+GROQ_MODEL = os.environ.get("SCHOLAR_MODEL", "llama3-8b-8192")
+api_key = os.environ.get('GROQ_API_KEY', '')
+client = AsyncGroq(api_key=api_key)
 
 
 @app.on_event("startup")
 async def startup_event():
     if not api_key:
-        logger.error("OLLAMA_API_KEY is missing.")
-        raise RuntimeError("OLLAMA_API_KEY is required for Scholar service.")
+        logger.error("GROQ_API_KEY is missing.")
+        raise RuntimeError("GROQ_API_KEY is required for Scholar service.")
 
 
 class ScholarRequest(BaseModel):
@@ -50,12 +46,13 @@ async def solve_query(data: ScholarRequest):
         logger.info(f"🔍 Scholar is solving: {data.query[:50]}...")
 
         async def generate():
-            async for chunk in await client.chat(
-                model=OLLAMA_MODEL,
+            stream = await client.chat.completions.create(
+                model=GROQ_MODEL,
                 messages=[{'role': 'user', 'content': data.query}],
                 stream=True
-            ):
-                content = chunk['message']['content']
+            )
+            async for chunk in stream:
+                content = chunk.choices[0].delta.content
                 if content:
                     yield content
 

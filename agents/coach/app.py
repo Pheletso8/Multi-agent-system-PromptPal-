@@ -3,7 +3,7 @@ import os
 import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from ollama import AsyncClient
+from groq import AsyncGroq
 import uvicorn
 
 logging.basicConfig(level=logging.INFO,
@@ -13,20 +13,16 @@ logger = logging.getLogger("coach")
 app = FastAPI()
 
 # Global client to reuse the connection pool
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-COACH_MODEL = os.environ.get("COACH_MODEL", "gpt-oss:120b-cloud")
-api_key = os.environ.get('OLLAMA_API_KEY', '')
-client = AsyncClient(
-    host=OLLAMA_HOST,
-    headers={'Authorization': f"Bearer {api_key}"}
-)
+GROQ_MODEL = os.environ.get("COACH_MODEL", "llama3-8b-8192")
+api_key = os.environ.get('GROQ_API_KEY', '')
+client = AsyncGroq(api_key=api_key)
 
 
 @app.on_event("startup")
 async def startup_event():
     if not api_key:
-        logger.error("OLLAMA_API_KEY is missing.")
-        raise RuntimeError("OLLAMA_API_KEY is required for Coach service.")
+        logger.error("GROQ_API_KEY is missing.")
+        raise RuntimeError("GROQ_API_KEY is required for Coach service.")
 
 
 class CoachRequest(BaseModel):
@@ -102,12 +98,13 @@ async def process_coach(data: CoachRequest):
         )
 
         async def generate():
-            async for chunk in await client.chat(
-                model=COACH_MODEL,
+            stream = await client.chat.completions.create(
+                model=GROQ_MODEL,
                 messages=[{'role': 'user', 'content': prompt}],
                 stream=True
-            ):
-                content = chunk['message']['content']
+            )
+            async for chunk in stream:
+                content = chunk.choices[0].delta.content
                 if content:
                     yield content
 

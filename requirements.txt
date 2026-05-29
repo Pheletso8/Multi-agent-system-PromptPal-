@@ -1,4 +1,4 @@
-ollama
+groq
 fastapi
 uvicorn
 httpx
