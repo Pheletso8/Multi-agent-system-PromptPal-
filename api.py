@@ -60,6 +60,11 @@ def build_scholar_prompt(question: str) -> str:
 async def health():
     return {"status": "ok", "service": "api", "ready": True}
 
+@app.head("/")
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "api", "ready": True}
+
 
 @app.post("/ask")
 async def ask_tutor(request: QuestionRequest):

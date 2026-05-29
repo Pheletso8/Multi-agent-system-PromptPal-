@@ -14,7 +14,7 @@ logger = logging.getLogger("scholar")
 app = FastAPI()
 
 # Global client to reuse the connection pool
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "https://ollama.com")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("SCHOLAR_MODEL", "gpt-oss:120b-cloud")
 api_key = os.environ.get('OLLAMA_API_KEY', '')
 client = AsyncClient(
@@ -36,6 +36,11 @@ class ScholarRequest(BaseModel):
 
 @app.get("/health")
 async def health():
+    return {"status": "ok", "service": "scholar", "ready": True}
+
+@app.head("/")
+@app.get("/")
+async def root():
     return {"status": "ok", "service": "scholar", "ready": True}
 
 

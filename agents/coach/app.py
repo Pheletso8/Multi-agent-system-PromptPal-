@@ -12,7 +12,8 @@ logger = logging.getLogger("coach")
 
 app = FastAPI()
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "https://ollama.com")
+# Global client to reuse the connection pool
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 COACH_MODEL = os.environ.get("COACH_MODEL", "gpt-oss:120b-cloud")
 api_key = os.environ.get('OLLAMA_API_KEY', '')
 client = AsyncClient(
@@ -35,6 +36,11 @@ class CoachRequest(BaseModel):
 
 @app.get("/health")
 async def health():
+    return {"status": "ok", "service": "coach", "ready": True}
+
+@app.head("/")
+@app.get("/")
+async def root():
     return {"status": "ok", "service": "coach", "ready": True}
 
 

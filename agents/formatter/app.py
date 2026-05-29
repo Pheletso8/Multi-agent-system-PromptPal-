@@ -17,6 +17,11 @@ class FormatRequest(BaseModel):
 async def health():
     return {"status": "ok", "service": "formatter", "ready": True}
 
+@app.head("/")
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "formatter", "ready": True}
+
 
 @app.post("/format")
 async def format_output(data: FormatRequest):
