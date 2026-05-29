@@ -9,20 +9,11 @@ services:
     healthCheckPath: /health
     envVars:
       - key: SCHOLAR_URL
-        fromService:
-          name: promptpal-scholar
-          type: pserv
-          property: hostport
+        value: http://promptpal-scholar:8001/solve
       - key: COACH_URL
-        fromService:
-          name: promptpal-coach
-          type: pserv
-          property: hostport
+        value: http://promptpal-coach:8002/process
       - key: FORMATTER_URL
-        fromService:
-          name: promptpal-formatter
-          type: pserv
-          property: hostport
+        value: http://promptpal-formatter:8003/format
 
   # 2. Scholar Agent
   - type: pserv # 'pserv' is a Private Service, only accessible internally
