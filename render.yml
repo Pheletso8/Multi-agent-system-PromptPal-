@@ -61,10 +61,3 @@ services:
           name: promptpal-api
           type: web
           envVarKey: INTERNAL_SECRET
-
-  - type: cron
-    name: promptpal-keepalive
-    runtime: python
-    buildCommand: pip install httpx
-    startCommand: python keep_alive.py
-    schedule: "*/10 * * * *"
