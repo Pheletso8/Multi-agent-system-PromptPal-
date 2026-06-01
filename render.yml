@@ -68,4 +68,3 @@ services:
     buildCommand: pip install httpx
     startCommand: python keep_alive.py
     schedule: "*/10 * * * *"
-    plan: free
