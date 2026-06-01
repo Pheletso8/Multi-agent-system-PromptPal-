@@ -1,5 +1,4 @@
 services:
-  # 1. API Gateway (The 'api' service)
   - type: web
     name: promptpal-api
     runtime: docker
@@ -9,38 +8,64 @@ services:
     healthCheckPath: /health
     envVars:
       - key: SCHOLAR_URL
-        value: http://promptpal-scholar/solve
+        value: https://promptpal-scholar.onrender.com/solve
       - key: COACH_URL
-        value: http://promptpal-coach/process
+        value: https://promptpal-coach.onrender.com/process
       - key: FORMATTER_URL
-        value: http://promptpal-formatter/format
+        value: https://promptpal-formatter.onrender.com/format
+      - key: INTERNAL_SECRET
+        generateValue: true
 
-  # 2. Scholar Agent
-  - type: pserv # 'pserv' is a Private Service, only accessible internally
+  - type: web
     name: promptpal-scholar
     runtime: docker
     dockerContext: agents/scholar
     dockerfilePath: agents/scholar/Dockerfile
-    healthCheckPath: /health
-    envVars:
-      - key: GROQ_API_KEY
-        sync: false # Set this manually in Render Dashboard for security
-
-  # 3. Coach Agent
-  - type: pserv
-    name: promptpal-coach
-    runtime: docker
-    dockerContext: agents/coach
-    dockerfilePath: agents/coach/Dockerfile
+    plan: free
     healthCheckPath: /health
     envVars:
       - key: GROQ_API_KEY
         sync: false
+      - key: INTERNAL_SECRET
+        fromService:
+          name: promptpal-api
+          type: web
+          envVarKey: INTERNAL_SECRET
 
-  # 4. Formatter Agent
-  - type: pserv
+  - type: web
+    name: promptpal-coach
+    runtime: docker
+    dockerContext: agents/coach
+    dockerfilePath: agents/coach/Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: INTERNAL_SECRET
+        fromService:
+          name: promptpal-api
+          type: web
+          envVarKey: INTERNAL_SECRET
+
+  - type: web
     name: promptpal-formatter
     runtime: docker
     dockerContext: agents/formatter
     dockerfilePath: agents/formatter/Dockerfile
+    plan: free
     healthCheckPath: /health
+    envVars:
+      - key: INTERNAL_SECRET
+        fromService:
+          name: promptpal-api
+          type: web
+          envVarKey: INTERNAL_SECRET
+
+  - type: cron
+    name: promptpal-keepalive
+    runtime: python
+    buildCommand: pip install httpx
+    startCommand: python keep_alive.py
+    schedule: "*/10 * * * *"
+    plan: free
