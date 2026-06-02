@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import httpx
 import uvicorn
+from fastapi import Response
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [Coach]: %(message)s")
@@ -49,7 +50,16 @@ class CoachRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "coach"}
+    return {
+        "status": "ok",
+        "service": "formatter",
+        "ready": True
+    }
+
+
+@app.head("/health")
+async def health_head():
+    return Response(status_code=200)
 
 
 @app.post("/process")

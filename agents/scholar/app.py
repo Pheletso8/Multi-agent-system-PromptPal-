@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import httpx
+from fastapi import Response
 import uvicorn
 
 logging.basicConfig(level=logging.INFO,
@@ -50,6 +51,11 @@ class ScholarRequest(BaseModel):
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "scholar"}
+
+
+@app.head("/health")
+async def health_head():
+    return Response(status_code=200)
 
 
 @app.post("/solve")

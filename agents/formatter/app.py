@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
 import os
+from fastapi import Response
 
 app = FastAPI()
 
@@ -15,7 +16,16 @@ class FormatRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "formatter", "ready": True}
+    return {
+        "status": "ok",
+        "service": "formatter",
+        "ready": True
+    }
+
+
+@app.head("/health")
+async def health_head():
+    return Response(status_code=200)
 
 
 @app.head("/")
@@ -29,11 +39,13 @@ async def format_output(data: FormatRequest):
     hint_content = data.hint
 
     # Extract Mermaid diagram
-    mermaid_match = re.search(r"```mermaid\n(.*?)\n```", hint_content, re.DOTALL)
+    mermaid_match = re.search(
+        r"```mermaid\n(.*?)\n```", hint_content, re.DOTALL)
     mermaid_code = mermaid_match.group(1).strip() if mermaid_match else ""
 
     # Remove diagram from hint text
-    clean_hint = re.sub(r"```mermaid.*?```", "", hint_content, flags=re.DOTALL).strip()
+    clean_hint = re.sub(r"```mermaid.*?```", "",
+                        hint_content, flags=re.DOTALL).strip()
 
     return {
         "status": "success",
