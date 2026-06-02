@@ -6,6 +6,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - PORT=8000
       - SCHOLAR_URL=http://scholar:8001/solve
       - COACH_URL=http://coach:8002/process
       - FORMATTER_URL=http://formatter:8003/format
@@ -26,7 +27,9 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - PORT=8001
+      - SCHOLAR_MODEL=meta-llama/llama-3.1-8b-instruct
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
@@ -40,7 +43,9 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - PORT=8002
+      - COACH_MODEL=meta-llama/llama-3.1-8b-instruct
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8002/health')\""]
@@ -53,6 +58,8 @@ services:
     build: ./agents/formatter
     ports:
       - "8003:8003"
+    environment:
+      - PORT=8003
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8003/health')\""]

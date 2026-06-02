@@ -24,7 +24,7 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
-      - key: GROQ_API_KEY
+      - key: OPENROUTER_API_KEY
         sync: false
       - key: INTERNAL_SECRET
         fromService:
@@ -40,7 +40,7 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
-      - key: GROQ_API_KEY
+      - key: OPENROUTER_API_KEY
         sync: false
       - key: INTERNAL_SECRET
         fromService:

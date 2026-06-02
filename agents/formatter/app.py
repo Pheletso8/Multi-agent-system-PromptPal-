@@ -17,6 +17,7 @@ class FormatRequest(BaseModel):
 async def health():
     return {"status": "ok", "service": "formatter", "ready": True}
 
+
 @app.head("/")
 @app.get("/")
 async def root():
@@ -27,20 +28,17 @@ async def root():
 async def format_output(data: FormatRequest):
     hint_content = data.hint
 
-    # Extract Mermaid code
-    mermaid_match = re.search(
-        r"```mermaid\n(.*?)\n```", hint_content, re.DOTALL)
+    # Extract Mermaid diagram
+    mermaid_match = re.search(r"```mermaid\n(.*?)\n```", hint_content, re.DOTALL)
     mermaid_code = mermaid_match.group(1).strip() if mermaid_match else ""
 
-    # Remove mermaid block for clean UI
-    clean_hint = re.sub(r"```mermaid.*?```", "",
-                        hint_content, flags=re.DOTALL).strip()
+    # Remove diagram from hint text
+    clean_hint = re.sub(r"```mermaid.*?```", "", hint_content, flags=re.DOTALL).strip()
 
     return {
         "status": "success",
-        "timestamp": time.time(),
         "data": {
-            "hint": clean_hint if clean_hint else "Sharp-sharp! Let's look at this...",
+            "hint": clean_hint,
             "diagram": mermaid_code
         }
     }

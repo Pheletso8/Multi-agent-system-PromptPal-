@@ -1,28 +1,45 @@
-from fastapi.responses import StreamingResponse
 import os
 import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from groq import AsyncGroq
+import httpx
 import uvicorn
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [Coach]: %(message)s")
 logger = logging.getLogger("coach")
 
+COACH_MODEL = os.environ.get("COACH_MODEL", "meta-llama/llama-3.1-8b-instruct")
+OPENROUTER_API_KEY = os.environ.get(
+    'OPENROUTER_API_KEY') or os.environ.get('GROQ_API_KEY', '')
+OPENROUTER_API_BASE_URL = os.environ.get(
+    "OPENROUTER_API_BASE_URL", "https://openrouter.ai/api/v1/chat/completions")
+
+if not OPENROUTER_API_KEY:
+    logger.error("OPENROUTER_API_KEY is missing")
+    raise RuntimeError("OPENROUTER_API_KEY required")
+
 app = FastAPI()
 
-# Global client to reuse the connection pool
-GROQ_MODEL = os.environ.get("COACH_MODEL", "llama3-8b-8192")
-api_key = os.environ.get('GROQ_API_KEY', '')
-client = AsyncGroq(api_key=api_key)
 
+async def openrouter_chat_completion(model: str, messages: list[dict], temperature: float = 0.7) -> str:
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "User-Agent": "PromptPal/1.0",
+    }
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+    }
 
-@app.on_event("startup")
-async def startup_event():
-    if not api_key:
-        logger.error("GROQ_API_KEY is missing.")
-        raise RuntimeError("GROQ_API_KEY is required for Coach service.")
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(OPENROUTER_API_BASE_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+
+    return data["choices"][0]["message"]["content"]
 
 
 class CoachRequest(BaseModel):
@@ -32,89 +49,44 @@ class CoachRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "coach", "ready": True}
-
-@app.head("/")
-@app.get("/")
-async def root():
-    return {"status": "ok", "service": "coach", "ready": True}
+    return {"status": "ok", "service": "coach"}
 
 
 @app.post("/process")
 async def process_coach(data: CoachRequest):
     try:
-        logger.info(f"🧠 Coaching student on: {data.query[:50]}...")
-
-        persona = (
-            "You are Coach Pal, a Grade 7 tutor from South Africa. "
-            "You are warm, encouraging, and direct. 🇿🇦\n"
-            "Goal: Support the student by guiding their thinking for every question, not by giving the answer."
-        )
-
-        constraints = (
-            "### STRICT RULES:\n"
-            "1. ALWAYS guide the student with questions and explanations, even for simple arithmetic like 7 + 7.\n"
-            "2. NEVER reveal the final answer or the internal solution.\n"
-            "3. If the student asks for the answer, say: 'Aowa! I can't give you the full kota, I can only show you the recipe.'\n"
-            "4. If the input is only a greeting, reply with a short friendly South African greeting and ask what they need help with.\n"
-            "5. Use at most one South African analogy when it helps, such as vetkoek, taxi seating, airtime top-ups, or school sports.\n"
-            "6. Keep the language Grade 7 friendly and avoid unnecessary jargon.\n"
-        )
-
-        task_logic = (
-            "### YOUR TASK:\n"
-            "1. If the student greeted you, reply with a friendly greeting and ask what they want help with. Do not include a Mermaid diagram in that case.\n"
-            "2. Otherwise, start with a short encouraging observation and then ask exactly 2 guiding questions.\n"
-            "3. Then include a Mermaid diagram in a fenced code block using 'flowchart TD'.\n"
-            "4. Do NOT reveal the final numeric answer.\n\n"
-            "Example 1 (arithmetic):\n"
-            "Question: 'What is 7 + 7?'\n"
-            "Say something like 'Nice question! Let's think about how to split 7 sweets into two equal groups...' and ask:\n"
-            " - 'How many sweets are in one group if there are two groups?'\n"
-            " - 'What do we do next once we know one group size?'\n"
-            "Then show a simple flowchart for the method.\n\n"
-            "Example 2 (area):\n"
-            "Question: 'How do I find the area of a rectangle?'\n"
-            "Use a school sports field or classroom floor example, then ask:\n"
-            " - 'What two measurements do we need first?'\n"
-            " - 'How do we use those measurements together?'\n\n"
-            "Example 3 (greeting):\n"
-            "If the student says 'Hi' or 'Hello', reply: 'Howzit! I'm Coach Pal. What do you want to work through today?'\n\n"
-            "Example diagram for a real question:\n"
-            "```mermaid\n"
-            "flowchart TD\n"
-            "    A[\"🚀 Start\"] --> B[\"Step 1: Understand the question\"]\n"
-            "    B --> C[\"Step 2: Break it into smaller parts\"]\n"
-            "    C --> D[\"Step 3: Check your method\"]\n"
-            "```\n"
-        )
+        logger.info(f"Coaching: {data.query[:40]}...")
 
         prompt = (
-            f"{persona}\n\n"
-            f"Student Question: {data.query}\n"
-            f"Internal Solution: {data.solution}\n\n"
-            f"{constraints}\n\n"
-            f"{task_logic}"
+            f"You are a helpful tutor. Guide the student through this problem.\n\n"
+            f"Question: {data.query}\n\n"
+            f"Rules:\n"
+            f"1. Ask 2-3 guiding questions to help them think through it\n"
+            f"2. Don't reveal the answer\n"
+            f"3. ALWAYS include a Mermaid flowchart diagram at the end\n\n"
+            f"Example format:\n"
+            f"[Your guiding questions]\n\n"
+            f"```mermaid\n"
+            f"flowchart TD\n"
+            f"    A[Step 1] --> B[Step 2] --> C[Step 3]\n"
+            f"```\n"
         )
 
-        async def generate():
-            stream = await client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[{'role': 'user', 'content': prompt}],
-                stream=True
-            )
-            async for chunk in stream:
-                content = chunk.choices[0].delta.content
-                if content:
-                    yield content
+        full_response = await openrouter_chat_completion(
+            model=COACH_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a helpful tutor. Guide the student through the problem without giving the direct answer."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+        )
 
-        return StreamingResponse(generate(), media_type="text/plain")
+        return {"content": full_response}
 
     except Exception as e:
-        logger.error(f"❌ Coach failed: {e}")
+        logger.error(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    # Make sure this port is 8002 to match your working network config
     port = int(os.environ.get("PORT", 8002))
     uvicorn.run(app, host="0.0.0.0", port=port)

@@ -4,7 +4,7 @@
 # ============================================================
 # Usage:
 #   chmod +x deploy-gcloud.sh
-#   ./deploy-gcloud.sh YOUR_PROJECT_ID YOUR_GROQ_API_KEY
+#   ./deploy-gcloud.sh YOUR_PROJECT_ID YOUR_OPENROUTER_API_KEY
 #
 # Prerequisites:
 #   1. Google Cloud CLI installed (https://cloud.google.com/sdk/docs/install)
@@ -14,8 +14,8 @@
 
 set -e  # Exit on any error
 
-PROJECT_ID="${1:?Usage: ./deploy-gcloud.sh PROJECT_ID GROQ_API_KEY}"
-GROQ_API_KEY="${2:?Usage: ./deploy-gcloud.sh PROJECT_ID GROQ_API_KEY}"
+PROJECT_ID="${1:?Usage: ./deploy-gcloud.sh PROJECT_ID OPENROUTER_API_KEY}"
+OPENROUTER_API_KEY="${2:?Usage: ./deploy-gcloud.sh PROJECT_ID OPENROUTER_API_KEY}"
 REGION="us-central1"
 
 echo "============================================"
@@ -44,7 +44,7 @@ gcloud run deploy promptpal-scholar \
   --platform managed \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "GROQ_API_KEY=$GROQ_API_KEY"
+  --set-env-vars "OPENROUTER_API_KEY=$OPENROUTER_API_KEY"
 
 SCHOLAR_URL=$(gcloud run services describe promptpal-scholar \
   --region "$REGION" --format "value(status.url)")
@@ -61,7 +61,7 @@ gcloud run deploy promptpal-coach \
   --platform managed \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "GROQ_API_KEY=$GROQ_API_KEY"
+  --set-env-vars "OPENROUTER_API_KEY=$OPENROUTER_API_KEY"
 
 COACH_URL=$(gcloud run services describe promptpal-coach \
   --region "$REGION" --format "value(status.url)")

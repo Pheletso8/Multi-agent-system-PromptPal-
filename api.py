@@ -1,6 +1,5 @@
 import os
 import logging
-import re
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,12 +7,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uvicorn
 
-# --- 1. DEFINE LOGGER PROPERLY ---
-logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s [%(levelname)s]: %(message)s")
-logger = logging.getLogger("api-gateway")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s: %(message)s")
+logger = logging.getLogger("api")
 
-app = FastAPI(title="Grade 7 Tutor API")
+app = FastAPI(title="Tutor API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,77 +20,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Service URLs — set these as env vars pointing to each Cloud Run service URL
 SCHOLAR_URL = os.getenv("SCHOLAR_URL", "http://localhost:8001/solve")
 COACH_URL = os.getenv("COACH_URL", "http://localhost:8002/process")
 FORMATTER_URL = os.getenv("FORMATTER_URL", "http://localhost:8003/format")
-
-GREETINGS = re.compile(
-    r"^(hi|hello|howzit|hey|hiya|yo|good morning|good afternoon|good evening)\b.*$",
-    re.I,
-)
 
 
 class QuestionRequest(BaseModel):
     question: str
 
 
-def is_greeting(question: str) -> bool:
-    return bool(GREETINGS.match(question.strip()))
-
-
-def build_scholar_prompt(question: str) -> str:
-    return (
-        "You are Scholar Pal. Produce a complete internal reasoning path for a Grade 7 student. "
-        "This output is internal only and should NOT be given to the student directly. "
-        "Do not include the final numeric answer in the explanation.\n\n"
-        f"Question: {question}"
-    )
-
-
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "api", "ready": True}
-
-@app.head("/")
-@app.get("/")
-async def root():
-    return {"status": "ok", "service": "api", "ready": True}
+    return {"status": "ok"}
 
 
 @app.post("/ask")
 async def ask_tutor(request: QuestionRequest):
     question = request.question.strip()
     if not question:
-        raise HTTPException(
-            status_code=400, detail="Question must not be empty.")
+        raise HTTPException(status_code=400, detail="Question required")
 
-    greeted = is_greeting(question)
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
-            if greeted:
-                logger.info(f"👋 Greeting request: {question[:80]}")
-                scholar_solution = ""
-            else:
-                logger.info(f"🧠 Tutoring request: {question[:80]}")
-                scholar_response = await client.post(
-                    SCHOLAR_URL,
-                    json={"query": build_scholar_prompt(question)}
-                )
-                scholar_response.raise_for_status()
-                scholar_solution = scholar_response.text.strip()
-                if not scholar_solution:
-                    raise ValueError("Scholar returned an empty solution.")
+            logger.info(f"Question: {question[:50]}...")
+            
+            # Get solution from Scholar
+            scholar_response = await client.post(
+                SCHOLAR_URL,
+                json={"query": question}
+            )
+            scholar_response.raise_for_status()
+            scholar_data = scholar_response.json()
+            scholar_solution = scholar_data.get("content", "")
 
-            logger.info("🧠 Passing request to Coach...")
+            # Get coaching from Coach
             coach_response = await client.post(
                 COACH_URL,
                 json={"query": question, "solution": scholar_solution}
             )
             coach_response.raise_for_status()
-            coach_hint = coach_response.text
+            coach_data = coach_response.json()
+            coach_hint = coach_data.get("content", "")
 
-            logger.info("🎨 Formatting coach output...")
+            # Format output
             formatter_response = await client.post(
                 FORMATTER_URL,
                 json={"hint": coach_hint, "solution": scholar_solution}
@@ -102,17 +71,15 @@ async def ask_tutor(request: QuestionRequest):
             payload = formatter_response.json()
 
             return JSONResponse({
-                "status": "success",
-                "type": "greeting" if greeted else "guided",
-                "question": question,
-                "data": payload["data"],
+                "content": payload["data"].get("hint", ""),
+                "diagram": payload["data"].get("diagram", ""),
             })
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error in pipeline: {e}")
-            raise HTTPException(status_code=502, detail=str(e))
+            logger.error(f"Service error: {e}")
+            raise HTTPException(status_code=502, detail="Service error")
         except Exception as e:
-            logger.error(f"Pipeline Error: {e}")
+            logger.error(f"Error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
 
