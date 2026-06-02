@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uvicorn
+from fastapi import Response
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s: %(message)s")
 logger = logging.getLogger("api")
@@ -31,7 +32,15 @@ class QuestionRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "service": "api"
+    }
+
+
+@app.head("/health")
+async def health_head():
+    return Response(status_code=200)
 
 
 @app.post("/ask")
