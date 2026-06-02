@@ -5,3 +5,7 @@ data/summary.txt
 data/prioritized.txt
 __pycache__/
 *.pyc
+
+BEFORE_AFTER.md
+FIXES_SUMMARY.md
+QUICK_CHECKLIST.md
