@@ -16,8 +16,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://prompt-pal-six.vercel.app"],
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["content-type"],
 )
 
 SCHOLAR_URL = os.getenv("SCHOLAR_URL", "http://localhost:8001/solve")
