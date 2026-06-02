@@ -14,7 +14,7 @@ app = FastAPI(title="Tutor API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://prompt-pal-six.vercel.app"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,7 +43,7 @@ async def ask_tutor(request: QuestionRequest):
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
             logger.info(f"Question: {question[:50]}...")
-            
+
             # Get solution from Scholar
             scholar_response = await client.post(
                 SCHOLAR_URL,
